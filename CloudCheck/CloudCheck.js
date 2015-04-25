@@ -1,6 +1,3 @@
-// TODO: Ask Yaron about the displaying of the 'completed' attribute in exercises
-// TODO: Make sure all responses are JSON responses
-
 var mongo = require('mongodb').MongoClient;
 var express = require('express');
 var auth = require('basic-auth');
@@ -9,29 +6,37 @@ var assert = require('assert');
 var busboy = require('connect-busboy');
 var fs = require('fs');
 var crypto = require('crypto');
+var buffer = require('buffer');
 
-// TODO: Add delete handlers for deleting students and files from existing exercises
 ENDPOINTS = {'GET': {'/ping': ping_handler, 
 					 '/': endpoints_handler, 
 					 '/exercises': get_exercises_handler,
 					 '/exercises/:id': get_exercise_by_id_handler,
-					 '/exercises/:id/:path': get_exercise_file_handler},
+					 '/exercises/:id/:path': get_exercise_file_handler,
+					 '/grade/:id': get_exercise_grade},
 			 'PUT': {'/exercises/:id': exercise_add_handler, 
 			 		 '/exercises/:id/student': add_student_to_excersise_handler,
-			 		 '/exercises/:id/file': add_file_to_excersise_handler},
+			 		 '/exercises/:id/file': add_file_to_excersise_handler,
+			 		 '/readme/:id': add_readme_to_exercise_handler,
+			 		 '/grade/:id': add_grade_to_exercise_handler},
 			 'DELETE': {'/exercises/:id/student/:student': remove_student_from_excersise_handler,
-			 		    '/exercises/:id/file/:file': remove_file_from_excersise_handler}};
+			 		    '/exercises/:id/file/:name': remove_file_from_exercise_handler,
+			 			'/readme/:id/:name' : remove_readme_from_exercise_handler}};
 
 SECURE_ENDPOINTS = {'GET': {'/ping': false, 
 							'/': false, 
 							'/exercises': false, 
 							'/exercises/:id': false,
-							'/exercises/:id/:path': true},
+							'/exercises/:id/:path': true,
+							'/grade/:id': true},
 					'PUT': {'/exercises/:id': true,
 							'/exercises/:id/student': true,
-							'/exercises/:id/file': true},
+							'/exercises/:id/file': true,
+							'/grade/:id': true,
+							'/readme/:id': true},
 					'DELETE': {'/exercises/:id/student/:student': true,
-							   '/exercises/:id/file/:file': true}};
+							   '/exercises/:id/file/:file': true,
+							   '/readme/:id/:name': true}};
 
 SERVER_PORT = 8080;
 
@@ -50,6 +55,7 @@ var server = app.listen(SERVER_PORT, function() {
 });
 
 function load_endpoints(app) {
+	app.use(logger);
 	app.use(body_parser.json());
 	app.use(busboy());
 
@@ -73,13 +79,24 @@ function load_endpoints(app) {
 	}
 }
 
+function logger(req, res, next) {
+	console.log("[" + req.method + "] Request to url '" + req.url + "'")
+	next();
+}
+
 function auth_handler(req, res, next) {
 	var credentials = auth(req);
 
 	if (!credentials || credentials.name != USERNAME || credentials.pass != PASSWORD) {
-		res.status(403).json('This page requires authentication. Invalid username or password');
+		if (credentials) {
+			console.log("Authenticated request attempted - bad login (" + credentials.name + ":" + credentials.pass + ")");
+		} else {
+			console.log("Authenticated request attempted - no credentials passed");
+		}
+		res.status(403).json({'error': {'message': 'Authentication required. Invalid username or password', 'code': 403}});
 		return;
 	}
+	console.log("Authenticated request attempted - login successful")
 
 	next();
 }
@@ -98,11 +115,14 @@ function endpoints_handler(req, res) {
 	res.json(endpoints);
 }
 
-// TODO: Handler completed=true flag as well
 function get_exercises_handler(req, res) {
 	var get_exercises = function(db) { 
 		var collection = db.collection('exercises');
-		collection.find({}, {'id': 1, 'name': 1, 'version': 1, '_id': 0}).toArray(function(err, docs) {
+		query = {}
+		if (req.query.hasOwnProperty('completed')) {
+			query['completed'] = req.query.completed == "true";
+		}
+		collection.find(query, {'id': 1, 'name': 1, 'version': 1, '_id': 0}).toArray(function(err, docs) {
     		assert.equal(err, null);
     		res.json(docs);
 		}); 
@@ -118,7 +138,7 @@ function get_exercises_handler(req, res) {
 function get_exercise_by_id_handler(req, res) {
 	var get_exercise_by_id = function(db) { 
 		var collection = db.collection('exercises');
-		collection.find({'id': req.params.id}, {'id': 0, '_id': 0}).toArray(function(err, docs) {
+		collection.find({'id': req.params.id}, {'id': 0, '_id': 0, 'readme': 0}).toArray(function(err, docs) {
     		assert.equal(err, null);
 		    assert.equal(1, docs.length);    		
     		res.json(docs[0]);
@@ -144,15 +164,25 @@ function get_exercise_file_handler(req, res) {
 function exercise_add_handler(req, res) {
 	var insert_document = function(db, record) { 
 		var collection = db.collection('exercises');
-		collection.insert(record, function(err, result) {
+
+		collection.find({'id': record.id}).toArray(function(err, docs) {
 		    assert.equal(err, null);
-			console.log("Inserted exercise document");
-			res.json({"success": {"message": "Inserted new exercise", "code": 200}});
-			db.close();
+		    if (docs.length != 0) {
+		    	res.status(400).json({"error": 
+				{"message": "Exercise id already exists",
+    			 "code": 400}});
+		    	return;
+		    }
+
+			collection.insert(record, function(err, result) {
+			    assert.equal(err, null);
+				console.log("Inserted exercise document");
+				res.json({"success": {"message": "Inserted new exercise", "code": 200}});
+				db.close();
+			});
 		});
 	}
 
-	// TODO: Check if req.params.id already exists in the DB. If so, override it
 	if (req.body.hasOwnProperty('name') && req.body.hasOwnProperty('version') && req.body.hasOwnProperty('comment')) {
 		var record = {'id': req.params.id,
 					  'name': req.body.name,
@@ -161,7 +191,8 @@ function exercise_add_handler(req, res) {
 					  'published_at': new Date().toISOString(),
 					  'completed': false,
 					  'files': [],
-					  'students': [] };
+					  'students': [],
+					  'readme': [] };
 
 		mongo.connect(MONGODB_URL, function(err, db) {
 			assert.equal(null, err);
@@ -172,15 +203,12 @@ function exercise_add_handler(req, res) {
 	}
 }
 
-// TODO: Handle errors, such as invalid exercise id
 function add_student_to_excersise_handler(req, res) {
 	var update_document = function(db, exercise_id, student) { 
 		var collection = db.collection('exercises');
 		collection.find({'id': exercise_id}).toArray(function(err, docs) {
 		    assert.equal(err, null);
 		    assert.equal(1, docs.length);
-		    console.log("Found the following records");
-		    console.dir(docs);
 
 		    var students = docs[0].students;
 		    students.push(student);
@@ -209,27 +237,40 @@ function add_student_to_excersise_handler(req, res) {
 }
 
 function add_file_to_excersise_handler(req, res) {
+	add_file_or_readme_handler(req, res, true);
+}
+
+
+function add_file_or_readme_handler(req, res, is_file) {
+	if (is_file) { 
+		var type = 'files'; 
+	}
+	else { 
+		var type = 'readme'
+	}
+
 	var update_document = function(db, exercise_id, file) { 
 		var collection = db.collection('exercises');
 		collection.find({'id': exercise_id}).toArray(function(err, docs) {
 		    assert.equal(err, null);
 		    assert.equal(1, docs.length);
-		    console.log("Found the following records");
-		    console.dir(docs);
 
-		    var files = docs[0].files;
-		    var updated_files = files.slice(0);
-		    for (id in files) {
-		    	if (files[id].path === file.path) {
+		    var records = docs[0][type]
+		    var updated_records = records.slice(0);
+		    for (id in records) {
+		    	if (records[id].path === file.path) {
 		    		console.log("File already exists in DB, removing it");
-		    		updated_files.splice(updated_files.indexOf(files[id]), 1);
+		    		updated_records.splice(updated_records.indexOf(records[id]), 1);
 		    	}
 		    }
-		    updated_files.push(file);
+		    updated_records.push(file);
+
+		    var query = {}
+		    query[type] = updated_records
 		    
-    		collection.update({'id': exercise_id}, { $set: { 'files': updated_files } }, function(err, result) {
+    		collection.update({'id': exercise_id}, { $set: query }, function(err, result) {
 			    assert.equal(err, null);
-				console.log("update exercise file");
+				console.log("update exercise file or readme");
                 res.json({"success": {"message": "File uploaded succesfully", "code": 200}});
 				db.close();
 			});
@@ -245,7 +286,7 @@ function add_file_to_excersise_handler(req, res) {
 
             console.log("Uploading: " + filename);
 
-            var full_filename = __dirname + '/files/' + req.params.id + "_" + filename
+            var full_filename = __dirname + '/' + type + '/' + req.params.id + "_" + filename
             var fstream = fs.createWriteStream(full_filename);
             file.pipe(fstream);
             fstream.on('close', function () {
@@ -291,8 +332,6 @@ function remove_student_from_excersise_handler(req, res) {
 		collection.find({'id': exercise_id}).toArray(function(err, docs) {
 		    assert.equal(err, null);
 		    assert.equal(1, docs.length);
-		    console.log("Found the following records");
-		    console.dir(docs);
 
 		    var students = docs[0].students;
 		    var updated_students = students.slice(0);
@@ -326,49 +365,149 @@ function remove_student_from_excersise_handler(req, res) {
 	});	
 }
 
-function remove_file_from_excersise_handler(req, res) { 
+function remove_file_from_exercise_handler(req, res) {
+	remove_file_or_readme_handler(req, res, true)
+}
+
+function remove_file_or_readme_handler(req, res, is_file) {
+	if (is_file) { 
+		var type = 'files'; 
+	}
+	else { 
+		var type = 'readme'
+	} 
+
 	var update_document = function(db, exercise_id, filename) { 
 		var collection = db.collection('exercises');
 		collection.find({'id': exercise_id}).toArray(function(err, docs) {
 		    assert.equal(err, null);
 		    assert.equal(1, docs.length);
-		    console.log("Found the following records");
-		    console.dir(docs);
 
-		    var files = docs[0].files;
-		    var updated_files = files.slice(0);
-		    var file_removed = false
-		    for (id in files) {
-		    	if (files[id].path === filename) {
+		    var records = docs[0][type];
+		    var updated_records = records.slice(0);
+		    var record_removed = false
+		    console.log("filename: " + filename)
+		    for (id in records) {
+					console.log(records[id].path)
+		    	if (records[id].path === filename) {
 		    		console.log("File is removed");
-		    		updated_files.splice(updated_files.indexOf(files[id]), 1);
-		    		file_removed = true
+		    		updated_records.splice(updated_records.indexOf(records[id]), 1);
+		    		record_removed = true
 		    	}
 		    }
 
-		    if (!file_removed) {
+		    if (!record_removed) {
 		    	console.log("file was not found")
 		    	res.status(400).json({"error": {"message": "No such file exists", "code": 400}});
 		    	return
 		    }
 		    
-    		collection.update({'id': exercise_id}, { $set: { 'files': updated_files } }, function(err, result) {
+		    var query = {}
+		    query[type] = updated_records
+
+    		collection.update({'id': exercise_id}, { $set: query }, function(err, result) {
 			    assert.equal(err, null);
 				console.log("removed exercise file");
                 res.json({"success": {"message": "File removed succesfully", "code": 200}});
 				db.close();
 
-				fs.unlinkSync(__dirname + '/files/' + exercise_id + "_" + filename)
+				fs.unlinkSync(__dirname + '/' + type + '/' + exercise_id + "_" + filename)
 
 			});
 		});      
 	}
 
-	
-
 	mongo.connect(MONGODB_URL, function(err, db) {
 		assert.equal(null, err);
-		update_document(db, req.params.id, req.params.file);
+		update_document(db, req.params.id, req.params.name);
 	});
 }
 
+function add_grade_to_exercise_handler(req, res, next) {
+	var update_document = function(db, exercise_id, grade) { 
+		var collection = db.collection('exercises');
+		collection.find({'id': exercise_id}).toArray(function(err, docs) {
+		    assert.equal(err, null);
+		    assert.equal(1, docs.length);
+		   
+    		collection.update({'id': exercise_id}, { $set: { 'grade': grade } }, function(err, result) {
+			    assert.equal(err, null);
+				console.log("update exercise grade");
+				res.json({"success": {"message": "Updated exercise grade", "code": 200}});
+				db.close();
+			});
+		});      
+	}
+
+	if (req.busboy) {
+        req.busboy.on('file', function(fieldname, file, filename) {
+        	if (fieldname != "manifest") {
+        		res.status(400).json({"error": {"message": "Missing 'manifest' field", "code": 400}});
+        		return;
+        	}
+
+            console.log("Uploading grade file: " + filename);
+
+            var chunks = []
+            file.on('data', function(chunk) {
+            	chunks.push(chunk);
+            });
+
+            file.on('end', function() {
+            	var finalBuffer = Buffer.concat(chunks);
+            	var grade = finalBuffer.toString();
+
+            	if (isNaN(grade)) {
+	            	console.log(grade + ' is not a number.');
+	            	res.status(400).json({"error": {"message": "Uploaded grade is not a number", "code": 400}});
+	            	return;
+            	}
+
+				mongo.connect(MONGODB_URL, function(err, db) {
+					update_document(db, req.params.id, +grade);
+				});	
+            });
+
+            file.on('error', function(err) {
+            	console.log('Error ' + err + ' while uploading file');
+            	res.status(400).json({"error": {"message": "Error uploading file", "code": 400}});
+            });
+		});
+
+		req.pipe(req.busboy);
+	} else {
+		res.status(400).json({"error": {"message": "Missing file data", "code": 400}});
+	}
+}
+
+function get_exercise_grade(req, res, next) {
+	var get_exercise_by_id = function(db) { 
+		var collection = db.collection('exercises');
+		collection.find({'id': req.params.id}, {'name': 1, 'grade': 1 ,'students': 1, '_id': 0}).toArray(function(err, docs) {
+			if (err || docs.length == 0) {
+				res.status(404).json({"error": {"message": "No such exercise exists", "code": 404}});
+				return;
+			}
+			if (!docs[0].hasOwnProperty('grade')) {
+				res.status(404).json({"error": {"message": "No grade yet?", "code": 404}});
+				return;				
+			}
+		    assert.equal(1, docs.length);    		
+    		res.json(docs[0]);
+		}); 
+	}
+
+	mongo.connect(MONGODB_URL, function(err, db) {
+		assert.equal(null, err);
+		get_exercise_by_id(db);
+	});	
+}
+
+
+function add_readme_to_exercise_handler(req, res) {
+	add_file_or_readme_handler(req, res, false);
+}
+
+function remove_readme_from_exercise_handler(req, res) {
+	remove_file_or_readme_handler(req, res, false);
+}
