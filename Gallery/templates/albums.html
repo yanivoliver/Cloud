@@ -1,0 +1,91 @@
+{% extends "layout.html" %}
+{% block body %}
+
+  <script> 
+  function create_album() 
+  {
+    vex.dialog.prompt({
+    message: 'Album name',
+    placeholder: 'Album name',
+    callback: function (data) {
+      if (data) {
+        console.log(data); 
+        post('{{ url_for('create_new_album')}}', {'album_name': data})
+      }
+    }
+    });
+  };
+
+
+  function remove_image(image_name) {
+    vex.dialog.confirm({message: 'Are you sure you want to delete this image?',
+    callback: function(value) {
+        if (value) {
+          post('{{ url_for('remove_image', album_name=album_name)}}', {'image': image_name})
+        }
+    }
+    })
+  };
+
+
+  function remove_album(album_name) {
+    vex.dialog.confirm({message: 'Are you sure you want to delete this album?',
+    callback: function(value) {
+        if (value) {
+          post('{{ url_for('remove_old_album')}}', {'album_name': album_name})
+        }
+    }
+    })
+  };
+
+  function update_permissions() {
+    window.location = '{{ url_for('modify_permission', album_name=album_name) }}';
+  }
+
+  </script>
+
+  <div align="center"><h1>{{ title }}</h1></div>
+
+  <div id="album_list">
+    <button onclick="create_album()">Create a new album</button>
+    <br/>
+    {% for album in albums %}
+      <h2><img onclick="remove_album('{{album}}')" src='{{url_for('static', filename='delete.png')}}' width=20 height=20/>
+      <a href="{{ url_for('albums', album=album) }}">{{ album }}</a></h2>
+    {% endfor %}
+  </div>
+
+  <div id="album_images">
+
+    {% if album_name %}
+
+    <div align="left"><h2>{{ album_name }}</h2></div>
+
+    <div>
+      {% if is_write %}
+      <form enctype="multipart/form-data" action="{{ url_for('add_image', album_name=album_name) }}" method="POST">
+        <input type="file" name="image" accept="image/*" required />
+        <button type="submit">Upload</button>
+      </form>
+      <br/>
+      {% endif %}
+      {% if is_author %}
+      <button type = "submit" onclick='update_permissions()'>Edit permissions</button>
+      {% endif %}
+
+    </div>
+    <br />
+    {% if is_read %}
+    {% for image in images %}
+      <div id="album_image_div">
+        <img onclick="remove_image('{{image}}')" src='{{url_for('static', filename='delete.png')}}' width=20 height=20/>
+
+        <a href="{{ url_for('get_image', album_name=album_name, image_name=image) }}"><img src="{{ url_for('get_image', album_name=album_name, image_name=image) }}" id="album_image" /></a>
+      </div>
+    {% endfor %}
+    {% endif %}
+    {% endif %}
+  </div>
+
+{% endblock %}
+

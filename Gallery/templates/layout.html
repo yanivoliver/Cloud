@@ -1,0 +1,47 @@
+<!doctype html>
+<title>Gallery - {{ title }}</title>
+
+<script src="{{ url_for('static', filename='jquery-2.1.4.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vex.combined.min.js') }}"></script>
+<script>vex.defaultOptions.className = 'vex-theme-os';</script>
+<script>  function post(path, params, method) {
+      method = method || "post"; // Set method to post by default if not specified.
+      // The rest of this code assumes you are not using a library.
+      // It can be made less wordy if you use one.
+      var form = document.createElement("form");
+      form.setAttribute("method", method);
+      form.setAttribute("action", path);
+
+      for(var key in params) {
+          if(params.hasOwnProperty(key)) {
+              var hiddenField = document.createElement("input");
+              hiddenField.setAttribute("type", "hidden");
+              hiddenField.setAttribute("name", key);
+              hiddenField.setAttribute("value", params[key]);
+
+              form.appendChild(hiddenField);
+           }
+      }
+      document.body.appendChild(form);
+      form.submit();
+  } </script>
+<link rel="stylesheet" href="{{ url_for('static', filename='vex.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='vex-theme-os.css') }}" />
+
+<link rel=stylesheet type=text/css href="{{ url_for('static', filename='style.css') }}">
+<div class=page>
+  <div class=metanav>
+  {% if session.token %}
+	<div align="center">  
+		<h3>
+		  	<a href="{{ url_for('albums') }}">Albums</a>
+		    <a href="{{ url_for('logout') }}">Logout</a>
+		</h3>
+	</div>
+  {% endif %}
+  </div>
+
+  {% if message %} <script> vex.dialog.alert({message: '{{ message }}'}); </script> {% endif %}  
+
+  {% block body %}{% endblock %}
+</div>

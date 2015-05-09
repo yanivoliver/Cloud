@@ -1,0 +1,19 @@
+{% extends "layout.html" %}
+{% block body %}
+  <script>
+
+  vex.dialog.open({
+      message: 'Enter your username and password:',
+      input: '<input name="username" type="text" placeholder="Username" required /> <input name="password" type="password" placeholder="Password" required />',
+      buttons: [
+          $.extend({}, vex.dialog.buttons.YES, { text: 'Register' }),
+      ],
+      callback: function (data) {
+        post('{{ url_for('register') }}', {'username': data.username, 'password': data.password})
+      }
+    });
+
+  {% if error %} vex.dialog.alert({message: '{{ error }}'}); {% endif %}
+
+  </script>
+{% endblock %}

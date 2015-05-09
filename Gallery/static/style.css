@@ -1,0 +1,36 @@
+#album_list {
+	width: 20%;
+	float: left;
+	padding: 5px;	
+}
+
+#album_images {
+	float: left;
+	padding: 5px;
+	width: 75%;
+}
+
+#album_image {
+	max-width: 200px;
+	max-height: 200px;
+}
+
+#album_image_div {
+	width: 200px;
+	height: 225px;
+	border-style: double;
+	border-width: 1px;
+	float: left;
+}
+
+#write_list {
+	float: left;
+	padding: 5px;
+	width: 50%;
+}
+
+#read_list {
+	float: left;
+	padding: 5px;
+	width: 45%;
+}

@@ -1,0 +1,57 @@
+{% extends "layout.html" %}
+{% block body %}
+  <script>
+  function post_request(permission, alter_operation, username) {
+    post('{{ url_for('modify_permission', album_name=album_name)}}', 
+        {'permission': permission, 'alter_operation': alter_operation, 'modified_username': username})    
+  }
+
+  function add_permission(permission) 
+  {
+    vex.dialog.prompt({
+    message: 'Add ' + permission + ' permissions for:',
+    placeholder: 'username',
+    callback: function (data) {
+      if (data) {
+        post_request(permission, 'add', data)
+      }
+    }
+    });
+  };
+
+  function remove_permission(permission, username) {
+    vex.dialog.confirm({message: 'Are you sure you want to delete ' + permission + ' permission for user ' + username + '?',
+    callback: function(value) {
+        if (value) {
+          post_request(permission, 'remove', username)
+        }
+    }
+    })
+  };
+
+  </script>
+
+  <div align="center">
+    <h1>{{ title }} - {{ album_name }}</h1>
+    <br />
+    Author: {{ author }}
+  </div>
+  <div id="write_list" align="center">
+    <h3>Write permissions</h3>
+    <button onclick="add_permission('write', 'add')">Add user</button>    
+    <br /><br />
+    {% for user in write %}
+      <img width='20px' height='20px' src='{{ url_for('static', filename='delete.png') }}' onclick="remove_permission('write', '{{ user }}')" /> {{ user }}
+      <br />
+    {% endfor %}
+  </div>
+  <div id="read_list" align="center">
+    <h3>Read permissions</h3>
+    <button onclick="add_permission('read', 'add')">Add user</button>
+    <br /><br />
+    {% for user in read %}
+      <img width='20px' height='20px' src='{{ url_for('static', filename='delete.png') }}' onclick="remove_permission('read', '{{ user }}')" /> {{ user }} 
+      <br />
+    {% endfor %}
+  </div>
+{% endblock %}
