@@ -194,8 +194,6 @@ def create_new_album(username):
 @requires_session_token
 def remove_old_album(username):
     album_name = request.form.get('album_name', None)
-    import ipdb
-    ipdb.set_trace()
     if not album_name:
         return redirect(url_for('albums', message="no album name")) 
     if remove_album(album_name, username):
@@ -536,7 +534,7 @@ def rest_modify_image(album_name, username):
         blob_service.put_block_blob_from_bytes(CONTAINER_NAME, file_name, req_file.decode("base64"))
 
         gallery_db.albums.update({'name': album_name}, {'$push': {'images': file_name}})
-        return jsonify({'success': "file uploaded"})
+        return jsonify({'success': "file uploaded", 'file_name': file_name})
     else:
         # DELETE
         image = request.json.get('image', '')
@@ -581,4 +579,4 @@ def rest_modify_permission(album_name, permission, modified_username, username):
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')
