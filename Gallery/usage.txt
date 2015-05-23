@@ -1,0 +1,78 @@
+== Usage ==
+
+When registering or logging in, a unique token is returned, and is required for every operation performed. We reference that token as TOKEN in the operation examples below. For each of the listed operations error responses are returned in case an unauthorized operation is attempted (i.e. add image with no write permissions to an album).
+The list below displays the "happy-flow" of all the of the REST API operations implemented in the service.
+
+=== Operation examples ===
+register (with the username "user" and the password "pass"):
+	curl ubuntu-yanivo.cloudapp.net:5000/rest/register -X GET -d '{"username":"user", "password":"pass"}' -H "Content-Type: application/json"
+response:
+  	"token": "TOKEN"
+
+
+login (with the username "user" and the password "pass"):
+	curl ubuntu-yanivo.cloudapp.net:5000/rest/login -X GET -u user:pass
+response:
+  	"token": "TOKEN"
+
+
+create a new album (with the name "new_album_name"):
+	curl ubuntu-yanivo.cloudapp.net:5000/rest/album/new_album_name -X POST -d '{"token":"TOKEN"}' -H "Content-Type: application/json"
+response:
+  "success": "album was created"
+
+
+remove an existing album (with the name "new_album_name"):
+	curl ubuntu-yanivo.cloudapp.net:5000/rest/album/new_album_name -X DELETE -d '{"token":"TOKEN"}' -H "Content-Type: application/json"
+response:
+  "success": "album was removed"
+
+
+show the list of albums with permissions for the user:
+	curl ubuntu-yanivo.cloudapp.net:5000/rest/album -X GET -d '{"token":"TOKEN"}' -H "Content-Type: application/json"
+response:
+	  "author": [
+	    "new_album_name"
+	  ],
+	  "read": [],
+	  "write": [
+	    "new_album_name"
+	  ]
+
+
+upload a new_image (with the content "BASE64-CONTENT"):
+	curl ubuntu-yanivo.cloudapp.net:5000/rest/album/new_album_name/image -X POST -d '{"token":"TOKEN", "data":"BASE64-CONTENT"}’ -H "Content-Type: application/json"
+response:
+  "file_name": "IMAGE_NAME",
+  "success": "file uploaded"
+
+
+remove the image with the name "IMAGE_NAME":
+	curl ubuntu-yanivo.cloudapp.net:5000/rest/album/new_album_name/image -X DELETE -d '{"token":"TOKEN", "image": "IMAGE_NAME"}' -H "Content-Type: application/json"
+response:
+  "success": "file deleted"
+
+
+adds read permissions for the album to another user (other_user_name):
+	curl ubuntu-yanivo.cloudapp.net:5000/rest/album/new_album_name/permissions/read/other_user_name -X POST -d '{"token":"TOKEN"}' -H "Content-Type: application/json"
+response:
+  "success": "added permission of other_user_name to read"
+
+
+adds write permissions for the album to another user (other_user_name):
+	curl ubuntu-yanivo.cloudapp.net:5000/rest/album/new_album_name/permissions/write/other_user_name -X POST -d '{"token":"TOKEN"}' -H "Content-Type: application/json"
+response:
+  "success": "added permission of other_user_name to write"
+
+
+removes read permissions for the album to another user (other_user_name):
+	curl ubuntu-yanivo.cloudapp.net:5000/rest/album/new_album_name/permissions/read/other_user_name -X DELETE -d '{"token":"TOKEN"}' -H "Content-Type: application/json"
+response:
+  "success": "removed permission of other_user_name from read"
+
+
+removes write permissions for the album to another user (other_user_name):
+	curl ubuntu-yanivo.cloudapp.net:5000/rest/album/new_album_name/permissions/write/other_user_name -X DELETE -d '{"token":"TOKEN"}' -H "Content-Type: application/json"
+response:
+  "success": "removed permission of other_user_name from read"
+
