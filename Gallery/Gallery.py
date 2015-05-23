@@ -24,7 +24,6 @@ DB_PORT = 27017
 SESSION_TIMEOUT = 30 * 60
 
 ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'tif']
-UPLOAD_FOLDER = '/Users/zohar/GitHub/Gallery/images'
 ACCOUNT_NAME = 'cloudgallery'
 ACCOUNT_KEY = 'WOfbtZx/P2LGtg4wdorJN0iXe1/9ShQFi7Rk1LRrm/nLwYRLsv09zvcct+N/xiCsSYBBQ/xnsdg8C4d2sHZ57w=='
 CONTAINER_NAME = 'images'
@@ -56,6 +55,7 @@ def requires_session_token(func):
             return func(*args, **kwargs)
 
     return f
+
 
 @app.route('/', methods=['GET'])
 def index():
@@ -163,7 +163,7 @@ def get_image(album_name, image_name, username):
         return redirect(url_for('static', filename='image_not_found.gif'))
 
     try:
-        blob_service = BlobService(account_name = ACCOUNT_NAME, account_key = ACCOUNT_KEY)
+        blob_service = BlobService(account_name=ACCOUNT_NAME, account_key=ACCOUNT_KEY)
         data = blob_service.get_blob_to_bytes(CONTAINER_NAME, image_name)
 
         response = make_response(data)
@@ -243,15 +243,16 @@ def add_image(album_name, username):
     if not username in requested_album["write"]:
         return redirect(url_for('albums', album = album_name, message="permission denied"))
 
-    req_file = request.files.get('image', '')
-    if not req_file:
+    if 'image[]' not in request.files:
         return redirect(url_for('albums', album = album_name, message="no file uploaded"))
 
-    file_name = uuid.uuid4().hex
-    blob_service = BlobService(account_name=ACCOUNT_NAME, account_key=ACCOUNT_KEY)
-    blob_service.put_block_blob_from_file(CONTAINER_NAME, file_name, req_file.stream)
+    for req_file in request.files.getlist('image[]'):
+        file_name = uuid.uuid4().hex
+        blob_service = BlobService(account_name=ACCOUNT_NAME, account_key=ACCOUNT_KEY)
+        blob_service.put_block_blob_from_file(CONTAINER_NAME, file_name, req_file.stream)
 
-    gallery_db.albums.update({'name': album_name}, {'$push': {'images': file_name}})
+        gallery_db.albums.update({'name': album_name}, {'$push': {'images': file_name}})
+
     return redirect(url_for('albums', album = album_name))
 
 
@@ -356,6 +357,7 @@ def login_handler(username, password):
 
     return None
 
+
 @app.route('/rest/login', methods=['GET'])
 def rest_login():
     auth_details = request.authorization
@@ -378,7 +380,6 @@ def register_handler(username, password):
     gallery_db.auth_collection.insert_one({"username": username,
                                            "password": hashlib.sha1(password).hexdigest()})
     return set_token(username)
-
 
 
 @app.route('/rest/register', methods=['GET'])

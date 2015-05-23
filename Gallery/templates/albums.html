@@ -38,8 +38,15 @@
     })
   };
 
-  function update_permissions() {
-    window.location = '{{ url_for('modify_permission', album_name=album_name) }}';
+
+  function chooseFile(name) {
+    var chooser = $(name);
+    chooser.change(function(evt) {
+      console.log($(this).val());
+      $("#fileForm").submit()
+    });
+
+    chooser.trigger('click');  
   }
 
   </script>
@@ -49,30 +56,40 @@
   <div id="album_list">
     <button onclick="create_album()">Create a new album</button>
     <br/>
+    <ul class="nav nav-pills nav-stacked">
     {% for album in albums %}
-      <h2><img onclick="remove_album('{{album}}')" src='{{url_for('static', filename='delete.png')}}' width=20 height=20/>
-      <a href="{{ url_for('albums', album=album) }}">{{ album }}</a></h2>
+      <li role="presentation" {% if album == album_name %} class="active" {% endif %}>
+        <a href="{{ url_for('albums', album=album) }}">{{ album }}</a>
+      </li>
     {% endfor %}
+    </ul>    
   </div>
 
   <div id="album_images">
-
     {% if album_name %}
 
-    <div align="left"><h2>{{ album_name }}</h2></div>
+    <form id="fileForm" enctype="multipart/form-data" action="{{ url_for('add_image', album_name=album_name) }}" method="POST">
+      <input id="fileDialog" type="file" name="image[]" accept="image/*" style="display:none;" required multiple />
+    </form>
 
     <div>
-      {% if is_write %}
-      <form enctype="multipart/form-data" action="{{ url_for('add_image', album_name=album_name) }}" method="POST">
-        <input type="file" name="image" accept="image/*" required />
-        <button type="submit">Upload</button>
-      </form>
-      <br/>
-      {% endif %}
-      {% if is_author %}
-      <button type = "submit" onclick='update_permissions()'>Edit permissions</button>
-      {% endif %}
+      <ul class="nav nav-pills">
 
+        {% if is_write %}
+        <li role="presentation">
+          <a href="#" onclick="chooseFile('#fileDialog');">Upload image</a>
+        </li>
+        {% endif %}
+        {% if is_author %}
+        <li role="presentation">
+          <a href="{{ url_for('modify_permission', album_name=album_name) }}">Manage permissions</a>
+        </li>
+        <li role="presentation">
+          <a href="#" onclick="remove_album('{{album}}')">Delete album</a>
+        </li>
+        {% endif %}
+
+      </ul>
     </div>
     <br />
     {% if is_read %}
