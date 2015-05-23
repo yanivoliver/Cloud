@@ -55,7 +55,7 @@
 
   <div id="album_list">
     <button onclick="create_album()">Create a new album</button>
-    <br/>
+    <br/><br/>
     <ul class="nav nav-pills nav-stacked">
     {% for album in albums %}
       <li role="presentation" {% if album == album_name %} class="active" {% endif %}>
@@ -95,8 +95,8 @@
     {% if is_read %}
     {% for image in images %}
       <div id="album_image_div">
-        <img onclick="remove_image('{{image}}')" src='{{url_for('static', filename='delete.png')}}' width=20 height=20/>
-
+        <img onclick="remove_image('{{image}}')" src='{{url_for('static', filename='delete.png')}}' width=20 height=20 style="float:left" />
+	<br />
         <a href="{{ url_for('get_image', album_name=album_name, image_name=image) }}"><img src="{{ url_for('get_image', album_name=album_name, image_name=image) }}" id="album_image" /></a>
       </div>
     {% endfor %}

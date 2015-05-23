@@ -18,7 +18,7 @@ AuthTuple = namedtuple('AuthTuple', ('username', 'timestamp'))
 
 token_to_auth = {} # maps a token to the username and timestamp
 
-DB_ADDRESS = 'zorki.cloudapp.net'
+DB_ADDRESS = 'localhost'
 DB_PORT = 27017
 
 SESSION_TIMEOUT = 30 * 60
