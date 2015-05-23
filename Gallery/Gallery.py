@@ -18,7 +18,7 @@ AuthTuple = namedtuple('AuthTuple', ('username', 'timestamp'))
 
 token_to_auth = {} # maps a token to the username and timestamp
 
-DB_ADDRESS = 'localhost'
+DB_ADDRESS = 'localhost' #'zorki.cloudapp.net'
 DB_PORT = 27017
 
 SESSION_TIMEOUT = 30 * 60
@@ -194,6 +194,8 @@ def create_new_album(username):
 @requires_session_token
 def remove_old_album(username):
     album_name = request.form.get('album_name', None)
+    import ipdb
+    ipdb.set_trace()
     if not album_name:
         return redirect(url_for('albums', message="no album name")) 
     if remove_album(album_name, username):
