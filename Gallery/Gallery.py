@@ -81,8 +81,8 @@ def login():
         token = login_handler(username, password)
 
         if token:
-       	    # increment the counter of the logged in users
-		    statsd.increment("users logged in", 1)
+            # increment the counter of the logged in users
+            statsd.increment("users logged in", 1)
 
             session['token'] = token
             return redirect(url_for('albums'))
@@ -109,8 +109,8 @@ def register():
         token = register_handler(username, password)
 
         if token:
-       	    # increment the counter of the registered users	
-		    statsd.increment("users registered", 1)
+            # increment the counter of the registered users    
+            statsd.increment("users registered", 1)
 
             session['token'] = token
             return redirect(url_for('albums'))
@@ -193,8 +193,8 @@ def create_new_album(username):
         if not album:
             return redirect(url_for('albums', message="album name already exists"))
         else:
-       	    # increment the counter of the albums created
-		    statsd.increment("albums created", 1)
+               # increment the counter of the albums created
+            statsd.increment("albums created", 1)
 
             return redirect(url_for('albums', message="album created successfully", album=album_name))
     else:
@@ -208,8 +208,8 @@ def remove_old_album(username):
     if not album_name:
         return redirect(url_for('albums', message="no album name")) 
     if remove_album(album_name, username):
-   	    # increment the counter of the removed albums
-	    statsd.increment("albums removed", 1)
+           # increment the counter of the removed albums
+        statsd.increment("albums removed", 1)
 
         return redirect(url_for('albums', message="removed album successfully"))
 
