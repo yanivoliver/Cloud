@@ -1,7 +1,6 @@
 import hashlib
 import uuid
 import os
-import statsd
 
 from flask import Flask, request, Response, jsonify, make_response, render_template, session, redirect, url_for
 from pymongo import MongoClient
@@ -10,6 +9,7 @@ from time import time
 from functools import wraps
 from azure import WindowsAzureMissingResourceError
 from azure.storage import BlobService
+from statsd import StatsClient
 
 
 app = Flask(__name__,  static_folder='static')
@@ -29,6 +29,7 @@ ACCOUNT_NAME = 'cloudgallery'
 ACCOUNT_KEY = 'WOfbtZx/P2LGtg4wdorJN0iXe1/9ShQFi7Rk1LRrm/nLwYRLsv09zvcct+N/xiCsSYBBQ/xnsdg8C4d2sHZ57w=='
 CONTAINER_NAME = 'images'
 
+stats_client = StatsClient()
 
 #### HTML FRONTEND ####
 
@@ -82,7 +83,7 @@ def login():
 
         if token:
             # increment the counter of the logged in users
-            statsd.increment("users logged in", 1)
+            stats_client.incr("users logged in", 1)
 
             session['token'] = token
             return redirect(url_for('albums'))
@@ -110,7 +111,7 @@ def register():
 
         if token:
             # increment the counter of the registered users    
-            statsd.increment("users registered", 1)
+            stats_client.incr("users registered", 1)
 
             session['token'] = token
             return redirect(url_for('albums'))
@@ -194,7 +195,7 @@ def create_new_album(username):
             return redirect(url_for('albums', message="album name already exists"))
         else:
                # increment the counter of the albums created
-            statsd.increment("albums created", 1)
+            stats_client.incr("albums created", 1)
 
             return redirect(url_for('albums', message="album created successfully", album=album_name))
     else:
@@ -209,7 +210,7 @@ def remove_old_album(username):
         return redirect(url_for('albums', message="no album name")) 
     if remove_album(album_name, username):
            # increment the counter of the removed albums
-        statsd.increment("albums removed", 1)
+        stats_client.incr("albums removed", 1)
 
         return redirect(url_for('albums', message="removed album successfully"))
 
@@ -242,7 +243,7 @@ def remove_image(album_name, username):
 
     gallery_db.albums.update({'name': album_name}, {'$pull': {'images': image}})
     # increment the counter of the removed images
-    statsd.increment("images removed", 1)
+    stats_client.incr("images removed", 1)
     return redirect(url_for('albums', album=album_name))
 
 
@@ -270,7 +271,7 @@ def add_image(album_name, username):
         gallery_db.albums.update({'name': album_name}, {'$push': {'images': file_name}})
 
     # increment the counter of the uploaded images
-    statsd.increment("images upload", len(request.files.getlist('image[]')))
+    stats_client.incr("images uploaded", len(request.files.getlist('image[]')))
     return redirect(url_for('albums', album = album_name))
 
 
