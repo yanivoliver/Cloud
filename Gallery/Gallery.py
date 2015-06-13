@@ -31,17 +31,6 @@ CONTAINER_NAME = 'images'
 
 stats_client = StatsClient()
 
-stats_upload_timer = stats_client.timer("upload timer")
-
-
-# stats_album_counter = StatsdCounter("album counter")
-# stats_user_counter = StatsdCounter("user counter")
-# stats_image_counter = StatsdCounter("image counter")
-
-# stats_upload_timer = StatsdTimer("upload timer")
-# stats_download_timer = StatsdTimer("download timer")
-
-#threading.Timer(10, foo).start()
 
 #### HTML FRONTEND ####
 
@@ -283,6 +272,7 @@ def add_image(album_name, username):
 
     for req_file in request.files.getlist('image[]'):
         file_name = uuid.uuid4().hex
+        stats_upload_timer = stats_client.timer("upload timer")
         stats_upload_timer.start()
         blob_service = BlobService(account_name=ACCOUNT_NAME, account_key=ACCOUNT_KEY)
         blob_service.put_block_blob_from_file(CONTAINER_NAME, file_name, req_file.stream)
