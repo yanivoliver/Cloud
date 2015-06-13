@@ -195,6 +195,7 @@ def get_image(album_name, image_name, username):
         response.headers["Content-Disposition"] = "filename=%s.jpg" % image_name
         response.headers['Content-type'] = 'image/jpeg'
         stats_download_timer.stop()
+        stats_client.incr("images downloaded", 1)
         return response
     except Exception as ex:
         # TODO: different image in this case?
