@@ -1,7 +1,6 @@
 import hashlib
 import uuid
 import os
-import threading
 
 from flask import Flask, request, Response, jsonify, make_response, render_template, session, redirect, url_for
 from pymongo import MongoClient
@@ -32,7 +31,6 @@ CONTAINER_NAME = 'images'
 
 stats_client = StatsClient()
 
-stats_download_timer = stats_client.timer("download timer")
 stats_upload_timer = stats_client.timer("upload timer")
 
 
@@ -186,6 +184,7 @@ def get_image(album_name, image_name, username):
         return redirect(url_for('static', filename='image_not_found.gif'))
 
     try:
+    	stats_download_timer = stats_client.timer("download timer")
     	# start to time the download
     	stats_download_timer.start()
         blob_service = BlobService(account_name=ACCOUNT_NAME, account_key=ACCOUNT_KEY)
