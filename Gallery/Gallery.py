@@ -1,6 +1,7 @@
 import hashlib
 import uuid
 import os
+import threading
 
 from flask import Flask, request, Response, jsonify, make_response, render_template, session, redirect, url_for
 from pymongo import MongoClient
@@ -30,6 +31,19 @@ ACCOUNT_KEY = 'WOfbtZx/P2LGtg4wdorJN0iXe1/9ShQFi7Rk1LRrm/nLwYRLsv09zvcct+N/xiCsS
 CONTAINER_NAME = 'images'
 
 stats_client = StatsClient()
+
+stats_download_timer = stats_client.timer("download timer")
+stats_upload_timer = stats_client.timer("upload timer")
+
+
+# stats_album_counter = StatsdCounter("album counter")
+# stats_user_counter = StatsdCounter("user counter")
+# stats_image_counter = StatsdCounter("image counter")
+
+# stats_upload_timer = StatsdTimer("upload timer")
+# stats_download_timer = StatsdTimer("download timer")
+
+#threading.Timer(10, foo).start()
 
 #### HTML FRONTEND ####
 
@@ -172,15 +186,19 @@ def get_image(album_name, image_name, username):
         return redirect(url_for('static', filename='image_not_found.gif'))
 
     try:
+    	# start to time the download
+    	stats_download_timer.start()
         blob_service = BlobService(account_name=ACCOUNT_NAME, account_key=ACCOUNT_KEY)
         data = blob_service.get_blob_to_bytes(CONTAINER_NAME, image_name)
 
         response = make_response(data)
         response.headers["Content-Disposition"] = "filename=%s.jpg" % image_name
         response.headers['Content-type'] = 'image/jpeg'
+        stats_download_timer.stop()
         return response
     except Exception as ex:
         # TODO: different image in this case?
+        stats_download_timer.stop()
         return redirect(url_for('static', filename='image_not_found.gif'))
 
 
@@ -194,7 +212,7 @@ def create_new_album(username):
         if not album:
             return redirect(url_for('albums', message="album name already exists"))
         else:
-               # increment the counter of the albums created
+            # increment the counter of the albums created
             stats_client.incr("albums created", 1)
 
             return redirect(url_for('albums', message="album created successfully", album=album_name))
@@ -209,7 +227,7 @@ def remove_old_album(username):
     if not album_name:
         return redirect(url_for('albums', message="no album name")) 
     if remove_album(album_name, username):
-           # increment the counter of the removed albums
+        # increment the counter of the removed albums
         stats_client.incr("albums removed", 1)
 
         return redirect(url_for('albums', message="removed album successfully"))
@@ -265,10 +283,12 @@ def add_image(album_name, username):
 
     for req_file in request.files.getlist('image[]'):
         file_name = uuid.uuid4().hex
+        stats_upload_timer.start()
         blob_service = BlobService(account_name=ACCOUNT_NAME, account_key=ACCOUNT_KEY)
         blob_service.put_block_blob_from_file(CONTAINER_NAME, file_name, req_file.stream)
 
         gallery_db.albums.update({'name': album_name}, {'$push': {'images': file_name}})
+        stats_upload_timer.stop()
 
     # increment the counter of the uploaded images
     stats_client.incr("images uploaded", len(request.files.getlist('image[]')))
