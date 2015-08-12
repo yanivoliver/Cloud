@@ -9,6 +9,7 @@ from time import time
 from functools import wraps
 from azure import WindowsAzureMissingResourceError
 from azure.storage import BlobService
+from statsd import StatsClient
 
 
 app = Flask(__name__,  static_folder='static')
@@ -27,6 +28,8 @@ ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'tif']
 ACCOUNT_NAME = 'cloudgallery'
 ACCOUNT_KEY = 'WOfbtZx/P2LGtg4wdorJN0iXe1/9ShQFi7Rk1LRrm/nLwYRLsv09zvcct+N/xiCsSYBBQ/xnsdg8C4d2sHZ57w=='
 CONTAINER_NAME = 'images'
+
+stats_client = StatsClient()
 
 
 #### HTML FRONTEND ####
@@ -80,10 +83,14 @@ def login():
         token = login_handler(username, password)
 
         if token:
+            # increment the counter of the logged in users
+            stats_client.incr("users logged in", 1)
+
             session['token'] = token
             return redirect(url_for('albums'))
         else:
             return render_template('login.html', title="login", error="Login failed")
+
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -104,6 +111,9 @@ def register():
         token = register_handler(username, password)
 
         if token:
+            # increment the counter of the registered users    
+            stats_client.incr("users registered", 1)
+
             session['token'] = token
             return redirect(url_for('albums'))
         else:
@@ -163,15 +173,21 @@ def get_image(album_name, image_name, username):
         return redirect(url_for('static', filename='image_not_found.gif'))
 
     try:
+    	stats_download_timer = stats_client.timer("download timer")
+    	# start to time the download
+    	stats_download_timer.start()
         blob_service = BlobService(account_name=ACCOUNT_NAME, account_key=ACCOUNT_KEY)
         data = blob_service.get_blob_to_bytes(CONTAINER_NAME, image_name)
 
         response = make_response(data)
         response.headers["Content-Disposition"] = "filename=%s.jpg" % image_name
         response.headers['Content-type'] = 'image/jpeg'
+        stats_download_timer.stop()
+        stats_client.incr("images downloaded", 1)
         return response
     except Exception as ex:
         # TODO: different image in this case?
+        stats_download_timer.stop()
         return redirect(url_for('static', filename='image_not_found.gif'))
 
 
@@ -185,6 +201,9 @@ def create_new_album(username):
         if not album:
             return redirect(url_for('albums', message="album name already exists"))
         else:
+            # increment the counter of the albums created
+            stats_client.incr("albums created", 1)
+
             return redirect(url_for('albums', message="album created successfully", album=album_name))
     else:
         return redirect(url_for('albums', message="no album name"))
@@ -197,6 +216,9 @@ def remove_old_album(username):
     if not album_name:
         return redirect(url_for('albums', message="no album name")) 
     if remove_album(album_name, username):
+        # increment the counter of the removed albums
+        stats_client.incr("albums removed", 1)
+
         return redirect(url_for('albums', message="removed album successfully"))
 
     return redirect(url_for('albums', message="failed to remove album"))        
@@ -227,6 +249,8 @@ def remove_image(album_name, username):
         pass
 
     gallery_db.albums.update({'name': album_name}, {'$pull': {'images': image}})
+    # increment the counter of the removed images
+    stats_client.incr("images removed", 1)
     return redirect(url_for('albums', album=album_name))
 
 
@@ -248,11 +272,16 @@ def add_image(album_name, username):
 
     for req_file in request.files.getlist('image[]'):
         file_name = uuid.uuid4().hex
+        stats_upload_timer = stats_client.timer("upload timer")
+        stats_upload_timer.start()
         blob_service = BlobService(account_name=ACCOUNT_NAME, account_key=ACCOUNT_KEY)
         blob_service.put_block_blob_from_file(CONTAINER_NAME, file_name, req_file.stream)
 
         gallery_db.albums.update({'name': album_name}, {'$push': {'images': file_name}})
+        stats_upload_timer.stop()
 
+    # increment the counter of the uploaded images
+    stats_client.incr("images uploaded", len(request.files.getlist('image[]')))
     return redirect(url_for('albums', album = album_name))
 
 
