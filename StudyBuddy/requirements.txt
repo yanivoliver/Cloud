@@ -1,0 +1,7 @@
+tika
+elasticsearch
+flask
+flask-login
+flask-bcrypt
+pymongo
+azure
