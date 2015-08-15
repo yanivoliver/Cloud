@@ -22,9 +22,10 @@ bcrypt = Bcrypt(app)
 
 
 class User(UserMixin):
-	''' 
-	This class defines the user and saves it's username 
-	'''
+
+    '''
+    This class defines the user and saves it's username
+    '''
 
     def __init__(self, username):
         super(User, self).__init__()
@@ -35,7 +36,7 @@ class User(UserMixin):
 
 
 def login_handler(username, password):
-	# handles the login request - asserts the password and username are correct
+    # handles the login request - asserts the password and username are correct
     auth_collection = get_db().auth_collection
     record = auth_collection.find_one(
         {'username': username}, {'username': 1, 'password': 1})
@@ -49,14 +50,14 @@ def login_handler(username, password):
 
 @login_manager.request_loader
 def load_user_from_request(request):
-	# this function is called by flask on request 
+    # this function is called by flask on request 
     json = request.get_json()
 
     username = json.get('username', None)
     password = json.get('password', None)
 
     if not username or not password:
-    	# missing information
+        # missing information
         return None
 
     return login_handler(username, password)
@@ -88,7 +89,7 @@ def register():
 
 @login_manager.unauthorized_handler
 def unauthorized():
-	# this handler is called (automaticaly) by flask login when the user is unauthorized
+    # this handler is called (automaticaly) by flask login when the user is unauthorized
     return jsonify(status=400, message='Unauthorized')
 
 
