@@ -1,0 +1,25 @@
+==============
+Installation
+==============
+In order to get everything setup, all that is required is to execute the following command:
+pip install -r requirements.txt
+
+==============
+Usage examples
+==============
+In order to register a new account, we can perform the following command:
+curl -H "Content-Type: application/json" -X POST -d '{"username":"USERNAME", "password":"PASSWORD"}' http://ubuntu-yanivo.cloudapp.net:5001/register
+
+After an account was created successfully, we can upload a new file to be parsed:
+curl -H "Content-Type: application/json" -X POST -d @JSON_FILE http://ubuntu-yanivo.cloudapp.net:5001/upload_document
+
+The JSON sent needs to contain the following fields:
+- username
+- password
+- data - The file contents encoded in base64
+- force - This is optional, and will force the service to accept the file for parsing even if it was previously parsed. The value of this field must be true if passed.
+
+After a successful file upload, a task ID will be returned in the response referencing the uploaded file. We can query the status of the task as follows:
+curl -H "Content-Type: application/json" -X GET http://ubuntu-yanivo.cloudapp.net:5001/get_task_status/TASK_ID
+
+After the task is completed successfully (with status success) the data will be passed on to Elasticsearch, and will be viewable and queryable through Kibana.
