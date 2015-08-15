@@ -22,6 +22,9 @@ bcrypt = Bcrypt(app)
 
 
 class User(UserMixin):
+	''' 
+	This class defines the user and saves it's username 
+	'''
 
     def __init__(self, username):
         super(User, self).__init__()
@@ -32,6 +35,7 @@ class User(UserMixin):
 
 
 def login_handler(username, password):
+	# handles the login request - asserts the password and username are correct
     auth_collection = get_db().auth_collection
     record = auth_collection.find_one(
         {'username': username}, {'username': 1, 'password': 1})
@@ -39,17 +43,20 @@ def login_handler(username, password):
     if not record or not bcrypt.check_password_hash(record['password'], password):
         return None
 
+    # the authentication was correct - return the user object
     return User(record['username']) if record is not None else None
 
 
 @login_manager.request_loader
 def load_user_from_request(request):
+	# this function is called by flask on request 
     json = request.get_json()
 
     username = json.get('username', None)
     password = json.get('password', None)
 
     if not username or not password:
+    	# missing information
         return None
 
     return login_handler(username, password)
@@ -81,6 +88,7 @@ def register():
 
 @login_manager.unauthorized_handler
 def unauthorized():
+	# this handler is called (automaticaly) by flask login when the user is unauthorized
     return jsonify(status=400, message='Unauthorized')
 
 
@@ -94,6 +102,7 @@ def upload_documents():
     data = data.decode("base64")
     upload_handler = get_upload_handler()
 
+    # force is a flag that signals to upload the current file even if it was uploaded before
     force = request.json.get('force', None)
     if force is None or force.lower() != "true":
         if upload_handler.is_file_already_uploaded(data, current_user.get_id()):
@@ -101,10 +110,12 @@ def upload_documents():
 
     blob_service = BlobService(account_name=BLOB_ACCOUNT_NAME, account_key=BLOB_ACCOUNT_KEY)
     filename = uuid.uuid4().hex
+    # put the data in the container using a random filename
     blob_service.put_block_blob_from_bytes(BLOB_CONTAINER_NAME, filename, data)
 
     task_collection = get_db().task_collection
     
+    # update the task db with the new task (which is parsing the new data file)
     task_id = upload_handler.update_uploaded_file(filename, data, current_user.get_id())
 
     return jsonify(status=200, message='Task created successfully', task_id=task_id)
@@ -125,6 +136,7 @@ def get_task_status(task_id):
 
 def get_db():
     client = MongoClient(DB_ADDRESS, DB_PORT)
+    # the collection in this case is called studybuddy
     return client.studybuddy
 
 
