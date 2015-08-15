@@ -5,6 +5,9 @@ from bson.objectid import ObjectId
 
 
 class RecurringFileHandler(object):
+	'''
+	An interface for uploading recurring files
+	'''
 
     def __init__(self, db, *args, **kwargs):
         self._db = db
@@ -13,18 +16,31 @@ class RecurringFileHandler(object):
         return self._db[name]
 
     def update_uploaded_file(self, *args, **kwargs):
+    	'''
+    	update new file's upload information 
+    	returns a unique id representing the uploaded file object
+    	'''
         pass
 
     def is_file_already_uploaded(self, *args, **kwargs):
+    	'''
+    	checks if the file was already uploaded and parsed without failures
+    	returns true if the file should be allowed to be uploaded
+    	and false otherwise
+    	'''
         pass
 
     def get_task_status(self, task_id, *args, **kwargs):
+    	'''
+    	returns the task's status if such a task exists, and None otherwise
+    	'''
         pass
 
 
 class ChecksumRecurringFileHandler(RecurringFileHandler):
-
-    ''' using sha256 for the checksum '''
+    ''' 
+    Checksum recurring file handler, that uses sha256 for the checksum 
+    '''
 
     def __init__(self, *args, **kwargs):
         super(ChecksumRecurringFileHandler, self).__init__(*args, **kwargs)
@@ -41,6 +57,7 @@ class ChecksumRecurringFileHandler(RecurringFileHandler):
     def is_file_already_uploaded(self, data, username, *args, **kwargs):
         checksum = hashlib.sha256(data).hexdigest()
         try:
+        	# sort the records by timestamp in order to retreive the most recent record
             upload_record = self._upload_collection.find(
                 {'username': username, 'checksum': checksum}, {'filename': 1}).sort("timestamp", pymongo.DESCENDING).limit(1)
         except:
